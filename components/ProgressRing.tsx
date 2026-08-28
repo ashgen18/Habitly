@@ -1,44 +1,35 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native"
+import { useTheme } from "@/components/ui"
 
-export function ProgressRing({
-  value,
-  target,
-  color,
-  size = 48,
-}: {
-  value: number;
-  target: number;
-  color: string;
-  size?: number;
-}) {
-  const progress = target <= 0 ? 0 : Math.min(1, value / target);
-  const done = progress >= 1;
-
+export function ProgressRing({ done, total }: { done: number; total: number }) {
+  const theme = useTheme()
+  const pct = total === 0 ? 0 : done / total
   return (
-    <View
-      style={[
-        styles.ring,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          borderColor: color,
-          backgroundColor: done ? color : "transparent",
-        },
-      ]}
-    >
-      <Text style={[styles.label, { color: done ? "#fff" : color, fontSize: size * 0.28 }]}>
-        {done ? "✓" : `${Math.round(progress * 100)}`}
+    <View style={{ marginVertical: 24 }}>
+      <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
+        <Text style={{ color: theme.text, fontSize: 32, fontWeight: "600" }}>{done}</Text>
+        <Text style={{ color: theme.muted, fontSize: 18 }}>/ {total}</Text>
+      </View>
+      <View
+        style={{
+          height: 10,
+          backgroundColor: theme.line,
+          borderRadius: 8,
+          marginTop: 10,
+          overflow: "hidden",
+        }}
+      >
+        <View
+          style={{
+            width: `${Math.round(pct * 100)}%`,
+            height: 10,
+            backgroundColor: theme.tint,
+          }}
+        />
+      </View>
+      <Text style={{ color: theme.muted, fontSize: 14, marginTop: 8 }}>
+        {total === 0 ? "Nothing due today" : done === total ? "Today is complete" : "completed today"}
       </Text>
     </View>
-  );
+  )
 }
-
-const styles = StyleSheet.create({
-  ring: {
-    borderWidth: 3,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  label: { fontWeight: "700" },
-});

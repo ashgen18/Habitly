@@ -1,62 +1,86 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Link } from "expo-router";
-import { todayKey } from "@/src/domain/dates";
-import type { BoardState, Habit } from "@/src/domain/types";
-import { useColorScheme } from "@/components/useColorScheme";
-import Colors from "@/constants/Colors";
-import { ProgressRing } from "./ProgressRing";
+import { Pressable, StyleSheet, Text, View } from "react-native"
+import { Link } from "expo-router"
+import type { Habit } from "@/src/domain/types.ts"
+import { habitStats, isScheduledOn } from "@/src/domain/habit-logic.ts"
+import { todayISO } from "@/src/domain/dates.ts"
+import { paletteOf } from "@/src/domain/palettes.ts"
+import { useTheme } from "@/components/ui"
 
 export function HabitRow({
   habit,
-  state,
-  onTick,
+  checks,
+  weekStartsOn,
+  onToggle,
+  taps,
 }: {
-  habit: Habit;
-  state: BoardState;
-  onTick: () => void;
+  habit: Habit
+  checks: ReadonlySet<string>
+  weekStartsOn: 0 | 1
+  onToggle: () => void
+  taps: number
 }) {
-  const scheme = useColorScheme() ?? "light";
-  const palette = Colors[scheme];
-  const today = todayKey();
-  const logged = state.logs[habit.id]?.[today] ?? 0;
-  const done = logged >= habit.target;
-  const color = Colors.habit[habit.color];
+  const theme = useTheme()
+  const today = todayISO()
+  const done = checks.has(today)
+  const stats = habitStats(habit, checks, today, weekStartsOn)
+  const due = isScheduledOn(habit, today, checks, weekStartsOn)
+  const palette = paletteOf(habit.palette)
+  const target = habit.frequency === "times_per_day" ? Math.max(1, habit.timesPerDay ?? 1) : 1
 
   return (
-    <View style={[styles.row, { backgroundColor: palette.card, borderColor: palette.line }]}>
+    <View
+      style={[
+        styles.row,
+        { backgroundColor: theme.card, borderColor: theme.line },
+      ]}
+    >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={done ? `Undo ${habit.name}` : `Log ${habit.name}`}
-        onPress={onTick}
-        style={styles.ringHit}
+        accessibilityLabel={done ? `Undo ${habit.name}` : `Complete ${habit.name}`}
+        onPress={onToggle}
+        style={[
+          styles.check,
+          {
+            backgroundColor: done ? palette.cell : theme.background,
+            borderColor: done ? palette.cell : theme.line,
+          },
+        ]}
       >
-        <ProgressRing value={logged} target={habit.target} color={color} size={44} />
+        <Text style={{ fontSize: 18 }}>{done ? "✓" : habit.icon}</Text>
       </Pressable>
       <Link href={`/habit/${habit.id}`} asChild>
         <Pressable style={styles.body}>
-          <Text style={[styles.name, { color: palette.text }]} numberOfLines={1}>
-            {habit.name}
-          </Text>
-          <Text style={[styles.meta, { color: palette.muted }]}>
-            {logged} / {habit.target} {habit.unit}
+          <Text style={{ color: theme.text, fontSize: 17, fontWeight: "600" }}>{habit.name}</Text>
+          <Text style={{ color: theme.muted, fontSize: 13, marginTop: 2 }}>
+            {stats.currentStreak} {stats.streakUnit} streak
+            {due && !done ? " · due today" : ""}
+            {target > 1 ? ` · ${taps}/${target}` : ""}
           </Text>
         </Pressable>
       </Link>
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 16,
+    gap: 12,
+    borderRadius: 20,
     padding: 12,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  ringHit: { padding: 2 },
-  body: { flex: 1, minWidth: 0, gap: 2 },
-  name: { fontSize: 16, fontWeight: "600" },
-  meta: { fontSize: 13 },
-});
+  check: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  body: {
+    flex: 1,
+    paddingVertical: 4,
+  },
+})

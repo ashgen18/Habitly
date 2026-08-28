@@ -1,30 +1,30 @@
-import { StyleSheet, Text, View } from "react-native";
-import { quoteForDate } from "@/src/domain/quotes";
-import { useColorScheme } from "@/components/useColorScheme";
-import Colors from "@/constants/Colors";
+import { useEffect, useState } from "react"
+import { Text, View } from "react-native"
+import {
+  currentOpeningQuote,
+  hydrateOpeningQuote,
+  subscribeOpeningQuote,
+  type HabitQuote,
+} from "@/src/domain/quotes.ts"
+import { Card, useTheme } from "@/components/ui"
 
-export function QuoteCard({ dateKey }: { dateKey: string }) {
-  const scheme = useColorScheme() ?? "light";
-  const palette = Colors[scheme];
-  const quote = quoteForDate(dateKey);
+export function QuoteCard() {
+  const theme = useTheme()
+  const [quote, setQuote] = useState<HabitQuote | null>(currentOpeningQuote)
 
+  useEffect(() => {
+    const unsub = subscribeOpeningQuote(() => setQuote(currentOpeningQuote()))
+    void hydrateOpeningQuote().then(setQuote)
+    return unsub
+  }, [])
+
+  if (!quote) return null
   return (
-    <View style={[styles.card, { backgroundColor: palette.card, borderColor: palette.line }]}>
-      <Text style={[styles.kicker, { color: palette.muted }]}>Today</Text>
-      <Text style={[styles.body, { color: palette.text }]}>“{quote.text}”</Text>
-      <Text style={[styles.by, { color: palette.muted }]}>— {quote.by}</Text>
-    </View>
-  );
+    <Card style={{ marginTop: 16 }}>
+      <Text style={{ color: theme.text, fontSize: 15, lineHeight: 22 }}>“{quote.text}”</Text>
+      {quote.by ? (
+        <Text style={{ color: theme.muted, fontSize: 12, marginTop: 6 }}>— {quote.by}</Text>
+      ) : null}
+    </Card>
+  )
 }
-
-const styles = StyleSheet.create({
-  card: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 16,
-    padding: 16,
-    gap: 8,
-  },
-  kicker: { fontSize: 11, fontWeight: "700", letterSpacing: 1.4, textTransform: "uppercase" },
-  body: { fontSize: 16, lineHeight: 24, fontStyle: "italic" },
-  by: { fontSize: 13 },
-});
