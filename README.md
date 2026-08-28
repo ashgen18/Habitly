@@ -16,6 +16,8 @@ npm run check
 npm run web
 ```
 
+`npm install` also writes app icons under `assets/images` from `scripts/encoded-assets.json`. GitHub's file API in this publish path cannot take PNG/TTF bytes, so the icons ship as base64 and unpack locally.
+
 Web preview: [http://127.0.0.1:43123](http://127.0.0.1:43123)
 
 On a Mac:
