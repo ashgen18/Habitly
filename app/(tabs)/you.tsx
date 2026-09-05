@@ -130,8 +130,22 @@ export default function YouScreen() {
         <Card>
           <Heading style={{ fontSize: 18 }}>Premium</Heading>
           <Muted style={{ marginTop: 8 }}>
-            Premium isn’t available to purchase in this version.
+            {store.canAccess(PremiumFeature.habitTemplates)
+              ? "You’re on Premium."
+              : store.purchasesReady
+                ? "Free on this device. Choose a plan from a locked screen, or restore a purchase."
+                : "Premium isn’t available to purchase on this device."}
           </Muted>
+          {store.purchasesReady ? (
+            <Button
+              title="Restore purchases"
+              variant="ghost"
+              disabled={store.purchaseBusy}
+              style={{ marginTop: 12 }}
+              onPress={() => void store.restorePurchases()}
+            />
+          ) : null}
+          {store.purchaseError ? <Muted style={{ marginTop: 8 }}>{store.purchaseError}</Muted> : null}
         </Card>
 
         {premium ? (
