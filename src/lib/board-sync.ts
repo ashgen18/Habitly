@@ -1,5 +1,6 @@
 import type { AppState } from "@/src/domain/types.ts"
 import { migrateToV3 } from "@/src/domain/migrate.ts"
+import { FREE_ENTITLEMENT } from "@/src/domain/premium/entitlement.ts"
 import { mergeByUpdatedAt } from "@/src/domain/premium/sync.ts"
 import { supabase, supabaseConfigured } from "@/src/lib/supabase.ts"
 
@@ -46,10 +47,7 @@ export function mergeBoards(local: AppState, remote: AppState): AppState {
       ...local.settings,
       ...remote.settings,
     },
-    entitlement:
-      (remote.entitlement.updatedAt ?? "") > (local.entitlement.updatedAt ?? "")
-        ? remote.entitlement
-        : local.entitlement,
+    entitlement: { ...FREE_ENTITLEMENT },
     categories: mergeByUpdatedAt(local.categories, remote.categories),
     goals: mergeByUpdatedAt(local.goals, remote.goals),
     stacks: mergeByUpdatedAt(local.stacks, remote.stacks),

@@ -32,7 +32,7 @@ On a device with Expo Go:
 npx expo start
 ```
 
-First launch loads a demo year. **You → Start with an empty board** for a clean slate.
+First launch starts with an empty board. In a development build, **You → Load demo board** can load sample habits.
 
 ## Supabase (optional)
 
@@ -71,9 +71,7 @@ Gated through `PremiumEntitlementManager`. Product IDs:
 - `habitly_premium_annual`
 - `habitly_premium_lifetime`
 
-StoreKit is architected and not connected in this build. Prices are not hardcoded.
-
-**Device preview:** You → Device preview toggles simulated Premium on this device only. Hide it before App Store review.
+Purchases are not available in this version. Client-stored entitlement is never treated as proof of Premium. RevenueCat and App Store IAP come next.
 
 ## App Store
 

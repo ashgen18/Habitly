@@ -7,10 +7,8 @@ import {
 } from "./premium/analytics.ts"
 import {
   canAccessFeature,
-  clearSimulatedPremium,
   isPremiumActive,
   PremiumFeature,
-  simulatePremium,
   FREE_ENTITLEMENT,
 } from "./premium/entitlement.ts"
 import { goalProgress, reorderIds, type Goal } from "./premium/organization.ts"
@@ -95,18 +93,29 @@ assert.equal(isScheduledOn(weekend, "2026-08-08", new Set(), 1), true, "Saturday
 assert.equal(isScheduledOn(weekend, "2026-08-10", new Set(), 1), false, "Monday off")
 
 assert.equal(canAccessFeature(FREE_ENTITLEMENT, PremiumFeature.goals), false, "free locked")
-assert.equal(canAccessFeature(simulatePremium(), PremiumFeature.goals), true, "premium open")
+assert.equal(
+  canAccessFeature(
+    {
+      status: "premium",
+      source: "storekit",
+      productId: "habitly_premium_monthly",
+      expiresAt: null,
+    },
+    PremiumFeature.goals
+  ),
+  false,
+  "client entitlement is not proof of Premium"
+)
 assert.equal(
   isPremiumActive({
     status: "premium",
     source: "storekit",
     productId: "x",
-    expiresAt: "2020-01-01T00:00:00.000Z",
+    expiresAt: null,
   }),
   false,
-  "expired subscription"
+  "client premium flag is ignored"
 )
-assert.equal(clearSimulatedPremium().status, "free")
 assert.equal(canAccessFeature(FREE_ENTITLEMENT, PremiumFeature.advancedAnalytics), false)
 
 const goal: Goal = {
@@ -170,6 +179,29 @@ assert.equal(v3.habits[0].name, "Water")
 assert.equal(v3.completions.keep["2026-08-01"].note, "hello", "completion dates preserved")
 assert.equal(v3.entitlement.status, "free")
 assert.ok(v3.categories.length >= 7)
+
+const sneaky = migrateToV3(
+  {
+    version: 3,
+    habits: v2.habits,
+    completions: v2.completions,
+    settings: v2.settings,
+    entitlement: {
+      status: "premium",
+      source: "storekit",
+      productId: "habitly_premium_monthly",
+      expiresAt: null,
+    },
+    categories: [],
+    goals: [],
+    stacks: [],
+    achievements: [],
+  },
+  "2026-08-25"
+)
+assert.ok(sneaky)
+assert.equal(sneaky.entitlement.status, "free", "migrated client premium is discarded")
+assert.equal(sneaky.habits[0].id, "keep", "habit data survives entitlement strip")
 
 const v1 = {
   version: 1,

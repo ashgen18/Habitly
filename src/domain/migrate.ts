@@ -83,18 +83,9 @@ export function migrateToV2(raw: unknown, now = todayISO()): V2State | null {
   return { version: 2, habits, completions, settings }
 }
 
-function asEntitlement(raw: unknown): AppState["entitlement"] {
-  if (!raw || typeof raw !== "object") {
-    return { ...FREE_ENTITLEMENT }
-  }
-  const e = raw as AppState["entitlement"]
-  return {
-    status: e.status === "premium" ? "premium" : "free",
-    source: e.source === "simulated" || e.source === "storekit" ? e.source : "none",
-    productId: e.productId ?? null,
-    expiresAt: e.expiresAt ?? null,
-    updatedAt: e.updatedAt,
-  }
+function asEntitlement(_raw: unknown): AppState["entitlement"] {
+  // Client JSON is not proof of Premium. Habits and completions stay intact.
+  return { ...FREE_ENTITLEMENT }
 }
 
 /** v1/v2 → v3. Never drops habits or completion dates. */

@@ -1,6 +1,5 @@
 import { FEATURE_COPY, type PremiumFeature } from "@/src/domain/premium/entitlement.ts"
-import { STORE_PRODUCTS } from "@/src/domain/premium/entitlement.ts"
-import { Body, Button, Card, Heading, Muted } from "@/components/ui"
+import { Body, Card, Heading, Muted } from "@/components/ui"
 
 export function Paywall({ feature }: { feature: PremiumFeature }) {
   const copy = FEATURE_COPY[feature]
@@ -15,11 +14,8 @@ export function Paywall({ feature }: { feature: PremiumFeature }) {
         </Muted>
       ))}
       <Muted style={{ marginTop: 16 }}>
-        StoreKit is not connected in this build. Product IDs are {STORE_PRODUCTS.monthly.id},{" "}
-        {STORE_PRODUCTS.annual.id}, and {STORE_PRODUCTS.lifetime.id}. Prices come from the store,
-        never from this app.
+        Premium isn’t available to purchase in this version.
       </Muted>
-      <Button title="Restore purchases" variant="ghost" style={{ marginTop: 12 }} onPress={() => undefined} />
     </Card>
   )
 }

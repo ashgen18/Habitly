@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native"
-import { PremiumFeature, STORE_PRODUCTS } from "@/src/domain/premium/entitlement.ts"
+import { PremiumFeature } from "@/src/domain/premium/entitlement.ts"
 import { TEMPLATES } from "@/src/domain/premium/achievements.ts"
 import { ACHIEVEMENTS } from "@/src/domain/premium/achievements.ts"
 import { useStore } from "@/src/lib/store"
@@ -12,12 +12,11 @@ export default function YouScreen() {
   const theme = useTheme()
   const store = useStore()
   const auth = useAuth()
-  const { state, updateSettings, setSimulatedPremium, persistError, syncMessage, hydrated } = store
+  const { state, updateSettings, persistError, syncMessage, hydrated } = store
   const premium = store.canAccess(PremiumFeature.habitTemplates)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [authError, setAuthError] = useState<string | null>(null)
-  const simulated = state.entitlement.source === "simulated"
 
   return (
     <Screen>
@@ -84,8 +83,7 @@ export default function YouScreen() {
           <Heading style={{ fontSize: 18 }}>Account</Heading>
           {!auth.configured ? (
             <Muted style={{ marginTop: 8 }}>
-              Supabase is not configured. Habits stay on this device. Add EXPO_PUBLIC_SUPABASE_URL and
-              EXPO_PUBLIC_SUPABASE_ANON_KEY to sync across phones.
+              Your habits stay on this device. Sign-in isn’t available in this version.
             </Muted>
           ) : auth.user ? (
             <>
@@ -132,12 +130,7 @@ export default function YouScreen() {
         <Card>
           <Heading style={{ fontSize: 18 }}>Premium</Heading>
           <Muted style={{ marginTop: 8 }}>
-            Status: {store.entitlement.status}
-            {simulated ? " (device preview)" : ""}
-          </Muted>
-          <Muted style={{ marginTop: 6 }}>
-            Products {STORE_PRODUCTS.monthly.id}, {STORE_PRODUCTS.annual.id}, {STORE_PRODUCTS.lifetime.id}.
-            StoreKit is not connected yet.
+            Premium isn’t available to purchase in this version.
           </Muted>
         </Card>
 
@@ -172,22 +165,15 @@ export default function YouScreen() {
         )}
 
         <Card>
-          <Heading style={{ fontSize: 18 }}>Device preview</Heading>
-          <Muted style={{ marginTop: 8 }}>
-            Turns Premium on for this device only. Not a store purchase. Hide this before App Store
-            review.
-          </Muted>
+          {__DEV__ ? (
+            <Button title="Load demo board" variant="ghost" onPress={store.loadDemo} />
+          ) : null}
           <Button
-            title={simulated ? "Turn off device preview" : "Preview Premium on this device"}
+            title="Start with an empty board"
             variant="ghost"
-            style={{ marginTop: 12 }}
-            onPress={() => setSimulatedPremium(!simulated)}
+            style={{ marginTop: __DEV__ ? 8 : 0 }}
+            onPress={store.resetEmpty}
           />
-        </Card>
-
-        <Card>
-          <Button title="Load demo board" variant="ghost" onPress={store.loadDemo} />
-          <Button title="Start with an empty board" variant="ghost" style={{ marginTop: 8 }} onPress={store.resetEmpty} />
         </Card>
         {persistError ? <Muted>{persistError}</Muted> : null}
       </ScrollView>

@@ -81,8 +81,8 @@ export const FEATURE_COPY: Record<PremiumFeature, FeatureCopy> = {
   },
   AIInsights: {
     title: "Insights",
-    benefit: "Plain-language patterns from your own history. Cursor owns the prompt; a model is optional.",
-    perks: ["Weekend vs weekday", "Habit pairing", "Month-over-month change", "Falls back to local rules without a model key"],
+    benefit: "Plain-language patterns from your own history.",
+    perks: ["Weekend vs weekday", "Habit pairing", "Month-over-month change"],
   },
   habitTemplates: {
     title: "Templates",
@@ -107,7 +107,7 @@ export const STORE_PRODUCTS = {
   lifetime: { id: "habitly_premium_lifetime", period: "lifetime" as const },
 }
 
-export type EntitlementSource = "none" | "simulated" | "storekit"
+export type EntitlementSource = "none" | "storekit"
 
 export type Entitlement = {
   status: "free" | "premium"
@@ -132,9 +132,9 @@ export const FEATURE_ENABLED: Record<PremiumFeature, boolean> = {
   categories: true,
   habitStacking: true,
   advancedScheduling: true,
-  advancedReminders: true,
-  iCloudSync: true,
-  advancedWidgets: true,
+  advancedReminders: false,
+  iCloudSync: false,
+  advancedWidgets: false,
   advancedReports: true,
   AIInsights: true,
   habitTemplates: true,
@@ -142,10 +142,9 @@ export const FEATURE_ENABLED: Record<PremiumFeature, boolean> = {
   advancedCustomization: true,
 }
 
-export function isPremiumActive(entitlement: Entitlement, now = Date.now()): boolean {
-  if (entitlement.status !== "premium") return false
-  if (entitlement.expiresAt && Date.parse(entitlement.expiresAt) <= now) return false
-  return true
+export function isPremiumActive(_entitlement: Entitlement, _now = Date.now()): boolean {
+  // TODO: Replace temporary entitlement handling with server-validated RevenueCat/App Store entitlement.
+  return false
 }
 
 export function canAccessFeature(
@@ -155,20 +154,6 @@ export function canAccessFeature(
 ): boolean {
   if (!FEATURE_ENABLED[feature]) return false
   return isPremiumActive(entitlement, now)
-}
-
-export function simulatePremium(now = new Date().toISOString()): Entitlement {
-  return {
-    status: "premium",
-    source: "simulated",
-    productId: "habitly.simulated",
-    expiresAt: null,
-    updatedAt: now,
-  }
-}
-
-export function clearSimulatedPremium(now = new Date().toISOString()): Entitlement {
-  return { ...FREE_ENTITLEMENT, updatedAt: now }
 }
 
 /** Single source of truth for the current session. */

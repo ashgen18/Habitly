@@ -19,10 +19,9 @@ import { validateHabitName } from "@/src/domain/habit-logic.ts"
 import { newId } from "@/src/domain/id.ts"
 import { evaluateAchievements, TEMPLATES } from "@/src/domain/premium/achievements.ts"
 import {
+  FREE_ENTITLEMENT,
   PremiumEntitlementManager,
   PremiumFeature,
-  clearSimulatedPremium,
-  simulatePremium,
   type Entitlement,
 } from "@/src/domain/premium/entitlement.ts"
 import {
@@ -61,7 +60,6 @@ type Store = {
   restoreHabit: (id: string) => void
   deleteHabit: (id: string) => void
   updateSettings: (patch: Partial<Settings>) => void
-  setSimulatedPremium: (on: boolean) => void
   addGoal: (input: {
     name: string
     habitId: string | null
@@ -111,7 +109,7 @@ async function readDisk(): Promise<AppState | null> {
 
 async function persist(state: AppState): Promise<string | null> {
   try {
-    const json = JSON.stringify(state)
+    const json = JSON.stringify({ ...state, entitlement: { ...FREE_ENTITLEMENT } })
     await AsyncStorage.setItem(STORAGE_KEY_V3, json)
     try {
       if (typeof localStorage !== "undefined") localStorage.setItem(STORAGE_KEY_V3, json)
@@ -209,12 +207,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const loaded = await readDisk()
         if (!alive) return
         if (loaded) {
-          setState(loaded)
-          await persist(loaded)
+          const next = { ...loaded, entitlement: { ...FREE_ENTITLEMENT } }
+          setState(next)
+          await persist(next)
         } else {
-          const demo = buildDemoState()
-          setPersistError(await persist(demo))
-          setState(demo)
+          const empty = emptyState()
+          setPersistError(await persist(empty))
+          setState(empty)
         }
       } catch {
         if (alive) setState(emptyState())
@@ -397,12 +396,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateSettings(patch) {
         commit((prev) => ({ ...prev, settings: { ...prev.settings, ...patch } }))
       },
-      setSimulatedPremium(on) {
-        commit((prev) => ({
-          ...prev,
-          entitlement: on ? simulatePremium() : clearSimulatedPremium(),
-        }))
-      },
       addGoal(input) {
         const name = input.name.trim()
         if (!name) return "Give this goal a name"
@@ -558,6 +551,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return null
       },
       loadDemo() {
+        if (!__DEV__) return
         const next = buildDemoState()
         void persist(next).then(setPersistError)
         schedulePush(next)
