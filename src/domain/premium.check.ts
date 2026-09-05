@@ -11,6 +11,12 @@ import {
   PremiumFeature,
   FREE_ENTITLEMENT,
 } from "./premium/entitlement.ts"
+import {
+  entitlementFromCustomerInfo,
+  entitlementFromServerRow,
+  entitlementFromWebhookEvent,
+  preferEntitlement,
+} from "./premium/revenuecat.ts"
 import { goalProgress, reorderIds, type Goal } from "./premium/organization.ts"
 import { evaluateAchievements } from "./premium/achievements.ts"
 import { mergeByUpdatedAt } from "./premium/sync.ts"
@@ -94,29 +100,73 @@ assert.equal(isScheduledOn(weekend, "2026-08-10", new Set(), 1), false, "Monday 
 
 assert.equal(canAccessFeature(FREE_ENTITLEMENT, PremiumFeature.goals), false, "free locked")
 assert.equal(
-  canAccessFeature(
-    {
-      status: "premium",
-      source: "storekit",
-      productId: "habitly_premium_monthly",
-      expiresAt: null,
-    },
-    PremiumFeature.goals
-  ),
+  isPremiumActive({
+    status: "premium",
+    source: "none",
+    productId: "habitly_premium_monthly",
+    expiresAt: null,
+  }),
   false,
-  "client entitlement is not proof of Premium"
+  "client-shaped premium without storekit source is ignored"
 )
+const validated = {
+  status: "premium" as const,
+  source: "storekit" as const,
+  productId: "habitly_premium_monthly",
+  expiresAt: null,
+}
+assert.equal(isPremiumActive(validated), true, "RevenueCat storekit entitlement is active")
+assert.equal(canAccessFeature(validated, PremiumFeature.goals), true)
 assert.equal(
   isPremiumActive({
     status: "premium",
     source: "storekit",
     productId: "x",
-    expiresAt: null,
+    expiresAt: "2020-01-01T00:00:00.000Z",
   }),
   false,
-  "client premium flag is ignored"
+  "expired storekit entitlement"
 )
 assert.equal(canAccessFeature(FREE_ENTITLEMENT, PremiumFeature.advancedAnalytics), false)
+
+const fromRc = entitlementFromCustomerInfo({
+  entitlements: {
+    active: {
+      premium: {
+        identifier: "premium",
+        isActive: true,
+        productIdentifier: "habitly_premium_annual",
+        expirationDate: "2027-01-01T00:00:00.000Z",
+      },
+    },
+  },
+})
+assert.equal(fromRc.status, "premium")
+assert.equal(fromRc.source, "storekit")
+assert.equal(fromRc.productId, "habitly_premium_annual")
+assert.equal(entitlementFromCustomerInfo({ entitlements: { active: {} } }).status, "free")
+
+const purchased = entitlementFromWebhookEvent({
+  type: "INITIAL_PURCHASE",
+  app_user_id: "user-1",
+  product_id: "habitly_premium_monthly",
+  entitlement_ids: ["premium"],
+  expiration_at_ms: Date.parse("2027-06-01T00:00:00.000Z"),
+})
+assert.equal(purchased.status, "premium")
+assert.equal(
+  entitlementFromWebhookEvent({
+    type: "EXPIRATION",
+    entitlement_ids: ["premium"],
+    product_id: "habitly_premium_monthly",
+    expiration_at_ms: Date.parse("2026-01-01T00:00:00.000Z"),
+  }).status,
+  "free"
+)
+assert.equal(entitlementFromServerRow({ status: "free" }).status, "free")
+assert.equal(entitlementFromServerRow({ status: "premium", product_id: "habitly_premium_lifetime" }).source, "storekit")
+assert.equal(preferEntitlement(FREE_ENTITLEMENT, fromRc).status, "premium")
+assert.equal(preferEntitlement(FREE_ENTITLEMENT, FREE_ENTITLEMENT).status, "free")
 
 const goal: Goal = {
   id: "g1",
