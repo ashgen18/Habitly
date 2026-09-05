@@ -25,6 +25,10 @@ import {
   type Entitlement,
 } from "@/src/domain/premium/entitlement.ts"
 import {
+  entitlementFromCustomerInfo,
+  preferEntitlement,
+} from "@/src/domain/premium/revenuecat.ts"
+import {
   reorderIds,
   type Goal,
   type GoalPeriod,
@@ -34,6 +38,17 @@ import {
 import { syncReminders } from "@/src/lib/reminders.ts"
 import { mergeBoards, pullBoard, pushBoard } from "@/src/lib/board-sync.ts"
 import { useAuth } from "@/src/lib/auth.tsx"
+import { pullServerEntitlement } from "@/src/lib/entitlement-remote.ts"
+import {
+  configurePurchases,
+  fetchCustomerInfo,
+  fetchStoreOfferings,
+  identifyPurchaser,
+  purchaseProduct,
+  purchasesAvailable,
+  restorePurchases,
+  type StoreOffering,
+} from "@/src/lib/purchases.ts"
 
 const STORAGE_KEY_V3 = "tessera.v3"
 const STORAGE_KEY_V2 = "tessera.v2"
@@ -47,6 +62,12 @@ type Store = {
   activeHabits: Habit[]
   archivedHabits: Habit[]
   entitlement: Entitlement
+  purchasesReady: boolean
+  offerings: StoreOffering[]
+  purchaseBusy: boolean
+  purchaseError: string | null
+  purchase: (productId: string) => Promise<string | null>
+  restorePurchases: () => Promise<string | null>
   canAccess: (feature: PremiumFeature) => boolean
   completedDates: (habitId: string) => Set<string>
   isChecked: (habitId: string, iso: string) => boolean
@@ -197,6 +218,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false)
   const [persistError, setPersistError] = useState<string | null>(null)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
+  const [sessionEntitlement, setSessionEntitlement] = useState<Entitlement>(FREE_ENTITLEMENT)
+  const [offerings, setOfferings] = useState<StoreOffering[]>([])
+  const [purchaseBusy, setPurchaseBusy] = useState(false)
+  const [purchaseError, setPurchaseError] = useState<string | null>(null)
   const stateRef = useRef(state)
   stateRef.current = state
 
@@ -246,6 +271,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return syncReminders(state)
   }, [hydrated, state])
 
+  useEffect(() => {
+    if (!hydrated) return
+    let alive = true
+    ;(async () => {
+      await configurePurchases(user?.id ?? null)
+      if (user) await identifyPurchaser(user.id)
+      else await identifyPurchaser(null)
+      const [info, remote] = await Promise.all([
+        fetchCustomerInfo(),
+        user ? pullServerEntitlement(user.id) : Promise.resolve(FREE_ENTITLEMENT),
+      ])
+      const fromStore = info ? entitlementFromCustomerInfo(info) : FREE_ENTITLEMENT
+      if (!alive) return
+      setSessionEntitlement(preferEntitlement(fromStore, remote))
+      if (purchasesAvailable()) {
+        const nextOfferings = await fetchStoreOfferings()
+        if (alive) setOfferings(nextOfferings)
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [hydrated, user])
+
   const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const schedulePush = useCallback(
     (next: AppState) => {
@@ -272,11 +321,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [schedulePush]
   )
 
+  const applyPurchaseResult = useCallback(async (run: () => Promise<Entitlement | { error: string }>) => {
+    setPurchaseBusy(true)
+    setPurchaseError(null)
+    try {
+      const result = await run()
+      if ("error" in result) {
+        setPurchaseError(result.error)
+        return result.error
+      }
+      const remote = user ? await pullServerEntitlement(user.id) : FREE_ENTITLEMENT
+      setSessionEntitlement(preferEntitlement(result, remote))
+      return null
+    } finally {
+      setPurchaseBusy(false)
+    }
+  }, [user])
+
   const activeHabits = state.habits.filter((h) => !h.archivedAt)
   const archivedHabits = state.habits.filter((h) => h.archivedAt)
 
   const value = useMemo<Store>(() => {
-    const manager = new PremiumEntitlementManager(state.entitlement)
+    const manager = new PremiumEntitlementManager(sessionEntitlement)
     const isChecked = (habitId: string, iso: string) => completedSet(state, habitId).has(iso)
 
     return {
@@ -286,7 +352,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       syncMessage,
       activeHabits,
       archivedHabits,
-      entitlement: state.entitlement,
+      entitlement: sessionEntitlement,
+      purchasesReady: purchasesAvailable(),
+      offerings,
+      purchaseBusy,
+      purchaseError,
+      purchase: (productId) => applyPurchaseResult(() => purchaseProduct(productId)),
+      restorePurchases: () => applyPurchaseResult(() => restorePurchases()),
       canAccess: (feature) => manager.canAccess(feature),
       completedDates: (habitId) => completedSet(state, habitId),
       isChecked,
@@ -564,7 +636,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setState(next)
       },
     }
-  }, [activeHabits, archivedHabits, commit, hydrated, persistError, schedulePush, state, syncMessage])
+  }, [
+    activeHabits,
+    applyPurchaseResult,
+    archivedHabits,
+    commit,
+    hydrated,
+    offerings,
+    persistError,
+    purchaseBusy,
+    purchaseError,
+    schedulePush,
+    sessionEntitlement,
+    state,
+    syncMessage,
+  ])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }
