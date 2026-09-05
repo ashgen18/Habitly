@@ -65,17 +65,21 @@ Deploy the function with `supabase functions deploy habit-insights` and set `OPE
 
 ## Premium
 
-Gated through `PremiumEntitlementManager`. Product IDs:
+Gated through `PremiumEntitlementManager`. Access comes from RevenueCat CustomerInfo or the `entitlements` table (RevenueCat webhook). Habit board JSON is never proof of Premium.
+
+Product IDs (attach these to a RevenueCat entitlement named `premium`):
 
 - `habitly_premium_monthly`
 - `habitly_premium_annual`
 - `habitly_premium_lifetime`
 
-Purchases are not available in this version. Client-stored entitlement is never treated as proof of Premium. RevenueCat and App Store IAP come next.
+Public SDK keys go in `.env` as `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` and `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`. Expo Go and web cannot complete App Store purchases; use an EAS development build.
+
+Webhook: deploy `supabase/functions/revenuecat-webhook`, run `supabase/migrations/002_entitlements.sql`, and set function secret `REVENUECAT_WEBHOOK_AUTH` to the same `Authorization` header value configured in the RevenueCat dashboard. `Purchases.logIn` uses the Supabase user id so the webhook can write that row.
 
 ## App Store
 
-This repo is the React Native app. Ship with [EAS Build](https://docs.expo.dev/build/setup/) from a machine with an Apple Developer account. Linux cannot produce an `.ipa`.
+This repo is the React Native app. Ship with [EAS Build](https://docs.expo.dev/build/setup/) from a machine with an Apple Developer account. Linux cannot produce an `.ipa`. `eas.json` has development / preview / production profiles.
 
 ## Tests
 

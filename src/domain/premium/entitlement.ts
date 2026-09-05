@@ -142,9 +142,12 @@ export const FEATURE_ENABLED: Record<PremiumFeature, boolean> = {
   advancedCustomization: true,
 }
 
-export function isPremiumActive(_entitlement: Entitlement, _now = Date.now()): boolean {
-  // TODO: Replace temporary entitlement handling with server-validated RevenueCat/App Store entitlement.
-  return false
+export function isPremiumActive(entitlement: Entitlement, now = Date.now()): boolean {
+  // Only storekit-sourced rows from RevenueCat / the webhook. Never board JSON (migrate strips that).
+  if (entitlement.source !== "storekit") return false
+  if (entitlement.status !== "premium") return false
+  if (entitlement.expiresAt && Date.parse(entitlement.expiresAt) <= now) return false
+  return true
 }
 
 export function canAccessFeature(
